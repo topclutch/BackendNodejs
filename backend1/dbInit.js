@@ -48,84 +48,156 @@ const connectDB = async () => {
           manageSales: true,
           manageInventory: true,
         },
-        description: "Rol con todos los permisos",
+        description: "Acceso total al sistema",
       },
       {
         name: "Vendedor",
-        permissions: { manageSales: true },
-        description: "Rol para vendedores",
+        permissions: {
+          manageUsers: false,
+          manageProducts: false,
+          viewReports: false,
+          manageSales: true,
+          manageInventory: false,
+        },
+        description: "Puede gestionar ventas",
       },
       {
         name: "Consultor",
-        permissions: { viewReports: true },
-        description: "Rol para consultores",
+        permissions: {
+          manageUsers: false,
+          manageProducts: false,
+          viewReports: true,
+          manageSales: false,
+          manageInventory: false,
+        },
+        description: "Puede ver reportes",
       },
       {
         name: "Almacenista",
-        permissions: { manageInventory: true },
-        description: "Rol para almacén",
+        permissions: {
+          manageUsers: false,
+          manageProducts: true,
+          viewReports: false,
+          manageSales: false,
+          manageInventory: true,
+        },
+        description: "Gestiona inventario y productos",
       },
     ];
 
     const createdRoles = await Role.insertMany(defaultRoles);
     console.log(`✅ ${createdRoles.length} roles creados`);
     
-    // Obtener los roles creados
-    const adminRole = createdRoles.find(role => role.name === "Administrador");
-    const sellerRole = createdRoles.find(role => role.name === "Vendedor");
+    // Obtener los roles creados con función helper
+    const getRoleId = (name) => {
+      const role = createdRoles.find(role => role.name === name);
+      if (!role) {
+        throw new Error(`❌ Rol '${name}' no encontrado`);
+      }
+      return role._id;
+    };
 
     // ----------------------
     // 3️⃣ Crear usuarios
     // ----------------------
     console.log("👥 Creando usuarios...");
-    const users = [
+    const usersData = [
       {
-        name: "Admin",
+        name: "Administrador",
         email: "admin@example.com",
-        password: "admin123", // Asegúrate de que tu modelo hashee la contraseña
-        role_id: adminRole._id,
+        password: "admin123",
+        role_id: getRoleId("Administrador"),
+        active: true,
       },
       {
-        name: "Vendedor 1",
-        email: "vendedor@example.com",
+        name: "Vendedor Juan",
+        email: "juan@ventas.com",
         password: "vendedor123",
-        role_id: sellerRole._id,
-      }
+        role_id: getRoleId("Vendedor"),
+        active: true,
+      },
+      {
+        name: "Consultora Ana",
+        email: "ana@consultoria.com",
+        password: "consultor123",
+        role_id: getRoleId("Consultor"),
+        active: true,
+      },
+      {
+        name: "Almacenista Pedro",
+        email: "pedro@almacen.com",
+        password: "almacen123",
+        role_id: getRoleId("Almacenista"),
+        active: true,
+      },
     ];
 
-    const createdUsers = await User.insertMany(users);
-    console.log(`✅ ${createdUsers.length} usuarios creados`);
+    // Crear usuarios uno por uno para activar middleware pre-save
+    const createdUsers = [];
+    for (const userData of usersData) {
+      try {
+        console.log(`  Creando usuario: ${userData.name}...`);
+        const user = new User(userData);
+        await user.save(); // Esto activa el middleware pre-save
+        createdUsers.push(user);
+        console.log(`  ✅ ${userData.name} creado exitosamente`);
+      } catch (userError) {
+        console.error(`  ❌ Error creando ${userData.name}:`, userError.message);
+        if (userError.errors) {
+          Object.keys(userError.errors).forEach(field => {
+            console.error(`    - ${field}: ${userError.errors[field].message}`);
+          });
+        }
+        // Continuar con el siguiente usuario
+      }
+    }
+    console.log(`✅ ${createdUsers.length} usuarios creados exitosamente`);
 
     // ----------------------
     // 4️⃣ Crear ventas de ejemplo
     // ----------------------
-    console.log("💰 Creando ventas de ejemplo...");
-    const adminUser = createdUsers.find(user => user.email === "admin@example.com");
-    const vendedorUser = createdUsers.find(user => user.email === "vendedor@example.com");
+    if (createdUsers.length > 0) {
+      console.log("💰 Creando ventas de ejemplo...");
+      const adminUser = createdUsers.find(user => user.email === "admin@example.com");
+      const vendedorUser = createdUsers.find(user => user.email === "juan@ventas.com");
 
-    const sales = [
-      { 
-        product: "Producto A", 
-        quantity: 10, 
-        price: 100, 
-        createdBy: adminUser._id 
-      },
-      { 
-        product: "Producto B", 
-        quantity: 5, 
-        price: 200, 
-        createdBy: vendedorUser._id 
-      },
-      { 
-        product: "Producto C", 
-        quantity: 8, 
-        price: 150, 
-        createdBy: vendedorUser._id 
+      if (adminUser && vendedorUser) {
+        const sales = [
+          { 
+            product: "iPhone 14 Pro", 
+            quantity: 2, 
+            price: 1299.99, 
+            createdBy: vendedorUser._id,
+            notes: "Venta realizada por Juan"
+          },
+          { 
+            product: "MacBook Air", 
+            quantity: 1, 
+            price: 1199.99, 
+            createdBy: vendedorUser._id,
+            notes: "Cliente frecuente"
+          },
+          { 
+            product: "iPad Pro", 
+            quantity: 1, 
+            price: 1099.99, 
+            createdBy: adminUser._id,
+            notes: "Venta administrativa"
+          }
+        ];
+
+        try {
+          const createdSales = await Sale.insertMany(sales);
+          console.log(`✅ ${createdSales.length} ventas creadas`);
+        } catch (salesError) {
+          console.error("❌ Error creando ventas:", salesError.message);
+        }
+      } else {
+        console.log("⚠️  No se pueden crear ventas: faltan usuarios requeridos");
       }
-    ];
-
-    const createdSales = await Sale.insertMany(sales);
-    console.log(`✅ ${createdSales.length} ventas creadas`);
+    } else {
+      console.log("⚠️  No se crearon ventas: no hay usuarios disponibles");
+    }
 
     // ----------------------
     // 5️⃣ Verificar datos creados
@@ -135,14 +207,23 @@ const connectDB = async () => {
     console.log(`🔐 Roles: ${await Role.countDocuments()}`);
     console.log(`💰 Ventas: ${await Sale.countDocuments()}`);
     
-    // Mostrar algunos datos
-    const allUsers = await User.find().populate('role_id');
-    console.log("\n👤 USUARIOS CREADOS:");
-    allUsers.forEach(user => {
-      console.log(`  - ${user.name} (${user.email}) - Rol: ${user.role_id.name}`);
-    });
+    // Mostrar algunos datos si existen usuarios
+    if (await User.countDocuments() > 0) {
+      const allUsers = await User.find().populate('role_id');
+      console.log("\n👤 USUARIOS CREADOS:");
+      allUsers.forEach(user => {
+        console.log(`  - ${user.name} (${user.email}) - Rol: ${user.role_id.name}`);
+      });
+    } else {
+      console.log("\n⚠️  No se encontraron usuarios en la base de datos");
+    }
 
     console.log("\n✅ Base de datos soa_system inicializada correctamente");
+    console.log("\n🔐 CREDENCIALES DE PRUEBA:");
+    console.log("📧 Administrador: admin@example.com | 🔑 admin123");
+    console.log("📧 Vendedor: juan@ventas.com | 🔑 vendedor123");
+    console.log("📧 Consultora: ana@consultoria.com | 🔑 consultor123");
+    console.log("📧 Almacenista: pedro@almacen.com | 🔑 almacen123");
     
   } catch (error) {
     console.error("❌ Error conectando o inicializando MongoDB Atlas:", error);
