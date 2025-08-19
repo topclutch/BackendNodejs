@@ -1,19 +1,43 @@
 // dbInit.js
 import mongoose from "mongoose";
+import dotenv from "dotenv";
 import Role from "./models/Role.js";
 import User from "./models/User.js";
 import Sale from "./models/Sale.js";
 
-// Conexión directa a MongoDB Atlas con base de datos soa_system
-const MONGO_URI = "mongodb+srv://user:aUj0Z9UG83ElzX6c@cluster0.vkurtxa.mongodb.net/soa_system?retryWrites=true&w=majority&appName=Cluster0";
+dotenv.config();
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGO_URI);
-
+    // IMPORTANTE: Asegúrate de que tu MONGO_URI incluya la base de datos soa_system
+    // Ejemplo: mongodb+srv://usuario:password@cluster.mongodb.net/soa_system?retryWrites=true&w=majority
+    
+    console.log("🔄 Conectando a MongoDB Atlas...");
+    console.log(`📝 URI: ${process.env.MONGO_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+    
+    await mongoose.connect(process.env.MONGO_URI);
+    
     console.log(`✅ Conectado a MongoDB Atlas: ${mongoose.connection.host}`);
+    console.log(`📂 Base de datos usada: ${mongoose.connection.name}`);
+    
+    // Verificar que estamos en la base de datos correcta
+    if (mongoose.connection.name !== 'soa_system') {
+      console.log(`⚠️  ADVERTENCIA: Se esperaba 'soa_system' pero se está usando '${mongoose.connection.name}'`);
+    }
 
-    // Inicializar roles por defecto
+    // ----------------------
+    // 1️⃣ Limpiar datos existentes (opcional para testing)
+    // ----------------------
+    console.log("🧹 Limpiando datos existentes...");
+    await Role.deleteMany({});
+    await User.deleteMany({});
+    await Sale.deleteMany({});
+    console.log("✅ Datos anteriores eliminados");
+
+    // ----------------------
+    // 2️⃣ Crear roles
+    // ----------------------
+    console.log("📝 Creando roles...");
     const defaultRoles = [
       {
         name: "Administrador",
@@ -43,60 +67,92 @@ const connectDB = async () => {
       },
     ];
 
-    for (const role of defaultRoles) {
-      const exists = await Role.findOne({ name: role.name });
-      if (!exists) {
-        await Role.create(role);
-        console.log(`➕ Rol creado: ${role.name}`);
-      }
-    }
+    const createdRoles = await Role.insertMany(defaultRoles);
+    console.log(`✅ ${createdRoles.length} roles creados`);
+    
+    // Obtener los roles creados
+    const adminRole = createdRoles.find(role => role.name === "Administrador");
+    const sellerRole = createdRoles.find(role => role.name === "Vendedor");
 
-    console.log("✅ Roles inicializados correctamente");
-
-    // Crear usuario administrador si no existe
-    const adminRole = await Role.findOne({ name: "Administrador" });
-    const adminExists = await User.findOne({ email: "admin@example.com" });
-    if (!adminExists) {
-      await User.create({
+    // ----------------------
+    // 3️⃣ Crear usuarios
+    // ----------------------
+    console.log("👥 Creando usuarios...");
+    const users = [
+      {
         name: "Admin",
         email: "admin@example.com",
-        password: "admin123",
+        password: "admin123", // Asegúrate de que tu modelo hashee la contraseña
         role_id: adminRole._id,
-      });
-      console.log("➕ Usuario administrador creado: admin@example.com");
-    }
-
-    // Crear un usuario vendedor de ejemplo
-    const vendedorRole = await Role.findOne({ name: "Vendedor" });
-    const vendedorExists = await User.findOne({ email: "vendedor@example.com" });
-    if (!vendedorExists) {
-      await User.create({
-        name: "Vendedor",
+      },
+      {
+        name: "Vendedor 1",
         email: "vendedor@example.com",
         password: "vendedor123",
-        role_id: vendedorRole._id,
-      });
-      console.log("➕ Usuario vendedor creado: vendedor@example.com");
-    }
+        role_id: sellerRole._id,
+      }
+    ];
 
-    // Inicializar colección de ventas con ejemplo si está vacía
-    const saleExists = await Sale.findOne();
-    if (!saleExists) {
-      await Sale.create({
-        product: "Producto de prueba",
-        quantity: 10,
-        price: 100,
-        user_id: adminExists ? adminExists._id : undefined,
-        date: new Date(),
-      });
-      console.log("➕ Venta de ejemplo creada");
-    }
+    const createdUsers = await User.insertMany(users);
+    console.log(`✅ ${createdUsers.length} usuarios creados`);
 
-    console.log("✅ Base de datos soa_system inicializada correctamente");
-    process.exit(0);
+    // ----------------------
+    // 4️⃣ Crear ventas de ejemplo
+    // ----------------------
+    console.log("💰 Creando ventas de ejemplo...");
+    const adminUser = createdUsers.find(user => user.email === "admin@example.com");
+    const vendedorUser = createdUsers.find(user => user.email === "vendedor@example.com");
+
+    const sales = [
+      { 
+        product: "Producto A", 
+        quantity: 10, 
+        price: 100, 
+        createdBy: adminUser._id 
+      },
+      { 
+        product: "Producto B", 
+        quantity: 5, 
+        price: 200, 
+        createdBy: vendedorUser._id 
+      },
+      { 
+        product: "Producto C", 
+        quantity: 8, 
+        price: 150, 
+        createdBy: vendedorUser._id 
+      }
+    ];
+
+    const createdSales = await Sale.insertMany(sales);
+    console.log(`✅ ${createdSales.length} ventas creadas`);
+
+    // ----------------------
+    // 5️⃣ Verificar datos creados
+    // ----------------------
+    console.log("\n📊 RESUMEN DE DATOS CREADOS:");
+    console.log(`👥 Usuarios: ${await User.countDocuments()}`);
+    console.log(`🔐 Roles: ${await Role.countDocuments()}`);
+    console.log(`💰 Ventas: ${await Sale.countDocuments()}`);
+    
+    // Mostrar algunos datos
+    const allUsers = await User.find().populate('role_id');
+    console.log("\n👤 USUARIOS CREADOS:");
+    allUsers.forEach(user => {
+      console.log(`  - ${user.name} (${user.email}) - Rol: ${user.role_id.name}`);
+    });
+
+    console.log("\n✅ Base de datos soa_system inicializada correctamente");
+    
   } catch (error) {
-    console.error("❌ Error conectando o inicializando MongoDB Atlas:", error.message);
+    console.error("❌ Error conectando o inicializando MongoDB Atlas:", error);
+    console.error("Stack trace:", error.stack);
     process.exit(1);
+  } finally {
+    // Cerrar conexión
+    await mongoose.connection.close();
+    console.log("🔌 Conexión cerrada");
+    process.exit(0);
   }
 };
 
