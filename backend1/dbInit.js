@@ -1,19 +1,19 @@
 // dbInit.js
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import Role from "./models/Role.js";
 import User from "./models/User.js";
 import Sale from "./models/Sale.js";
 
-dotenv.config();
+// Conexión directa a MongoDB Atlas con base de datos soa_system
+const MONGO_URI = "mongodb+srv://user:aUj0Z9UG83ElzX6c@cluster0.vkurtxa.mongodb.net/soa_system?retryWrites=true&w=majority&appName=Cluster0";
 
 const connectDB = async () => {
   try {
-    // Conectar a MongoDB Atlas usando la cadena de conexión
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(MONGO_URI);
+
     console.log(`✅ Conectado a MongoDB Atlas: ${mongoose.connection.host}`);
 
-    // 1️⃣ Inicializar roles por defecto
+    // Inicializar roles por defecto
     const defaultRoles = [
       {
         name: "Administrador",
@@ -51,51 +51,49 @@ const connectDB = async () => {
       }
     }
 
-    // 2️⃣ Crear usuario administrador por defecto
+    console.log("✅ Roles inicializados correctamente");
+
+    // Crear usuario administrador si no existe
     const adminRole = await Role.findOne({ name: "Administrador" });
     const adminExists = await User.findOne({ email: "admin@example.com" });
     if (!adminExists) {
       await User.create({
         name: "Admin",
         email: "admin@example.com",
-        password: "admin123", // tu modelo debería hashear esto automáticamente
+        password: "admin123",
         role_id: adminRole._id,
       });
       console.log("➕ Usuario administrador creado: admin@example.com");
     }
 
-    // 3️⃣ Crear algunos usuarios de ejemplo
+    // Crear un usuario vendedor de ejemplo
     const vendedorRole = await Role.findOne({ name: "Vendedor" });
-    const consultorRole = await Role.findOne({ name: "Consultor" });
-
-    const sampleUsers = [
-      { name: "Juan Perez", email: "juan@example.com", password: "123456", role_id: vendedorRole._id },
-      { name: "Maria Lopez", email: "maria@example.com", password: "123456", role_id: consultorRole._id },
-    ];
-
-    for (const user of sampleUsers) {
-      const exists = await User.findOne({ email: user.email });
-      if (!exists) {
-        await User.create(user);
-        console.log(`➕ Usuario creado: ${user.email}`);
-      }
+    const vendedorExists = await User.findOne({ email: "vendedor@example.com" });
+    if (!vendedorExists) {
+      await User.create({
+        name: "Vendedor",
+        email: "vendedor@example.com",
+        password: "vendedor123",
+        role_id: vendedorRole._id,
+      });
+      console.log("➕ Usuario vendedor creado: vendedor@example.com");
     }
 
-    // 4️⃣ Crear algunas ventas de prueba
-    const adminUser = await User.findOne({ email: "admin@example.com" });
+    // Inicializar colección de ventas con ejemplo si está vacía
     const saleExists = await Sale.findOne();
     if (!saleExists) {
-      const sampleSales = [
-        { product: "Laptop", quantity: 2, price: 1500, user_id: adminUser._id },
-        { product: "Mouse", quantity: 10, price: 20, user_id: adminUser._id },
-      ];
-      await Sale.insertMany(sampleSales);
-      console.log("➕ Ventas de prueba creadas");
+      await Sale.create({
+        product: "Producto de prueba",
+        quantity: 10,
+        price: 100,
+        user_id: adminExists ? adminExists._id : undefined,
+        date: new Date(),
+      });
+      console.log("➕ Venta de ejemplo creada");
     }
 
-    console.log("✅ Base de datos `soa_system` inicializada con roles, usuarios y ventas");
+    console.log("✅ Base de datos soa_system inicializada correctamente");
     process.exit(0);
-
   } catch (error) {
     console.error("❌ Error conectando o inicializando MongoDB Atlas:", error.message);
     process.exit(1);
