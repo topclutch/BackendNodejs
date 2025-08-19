@@ -4,7 +4,7 @@ import dotenv from "dotenv"
 import helmet from "helmet"
 import morgan from "morgan"
 import rateLimit from "express-rate-limit"
-import os from "os" // Import using ES modules instead of require
+import os from "os"
 
 import { connectDB } from "./config/database.js"
 import swaggerSetup from "./config/swagger.js"
@@ -44,7 +44,7 @@ app.use(
       "http://localhost:5173",
       "http://localhost:5000",
       "http://127.0.0.1:5173",
-      "http://192.168.2.213:5173", // IP exacta de tu LAN
+      "http://192.168.2.213:5173",
       "http://127.0.0.1:5000",
       /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,
       /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5000$/,
@@ -54,7 +54,6 @@ app.use(
       /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:5000$/,
       /^https:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,
       /^https:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:5173$/,
-
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -65,9 +64,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ extended: true }))
 
-connectDB()
-swaggerSetup(app)
-
+// --- Rutas ---
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/sales", salesRoutes)
@@ -86,8 +83,15 @@ app.use((err, _req, res, _next) => {
 })
 app.use("*", (_req, res) => res.status(404).json({ success: false, message: "Ruta no encontrada" }))
 
+// --- Inicialización de DB y servidor ---
 const startServer = async () => {
   try {
+    // Esperar conexión a DB y datos iniciales
+    await connectDB()
+
+    // Configurar Swagger
+    swaggerSetup(app)
+
     const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`📚 Swagger disponible en http://localhost:${PORT}/api-docs`)
       console.log(`🚀 Backend 1 corriendo en:`)
