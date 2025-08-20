@@ -1,201 +1,241 @@
-import mongoose from "mongoose"
-import bcrypt from "bcrypt"
-import { User, Role, Sale } from "./models/index.js"
-import dotenv from "dotenv"
+// dbInit.js
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import Role from "./models/Role.js";
+import User from "./models/User.js";
+import Sale from "./models/Sale.js";
 
-dotenv.config()
+dotenv.config();
 
-const initDatabase = async () => {
+const connectDB = async () => {
   try {
-    console.log("🔗 Conectando a MongoDB...")
-    await mongoose.connect(process.env.MONGODB_URI)
-    console.log("✅ Conectado a MongoDB")
-
-    // Limpiar colecciones existentes (opcional)
-    console.log("🧹 Limpiando datos existentes...")
-    await Sale.deleteMany({})
-    console.log("✅ Ventas eliminadas")
-
-    // Crear roles si no existen
-    const roles = [
-      { name: "Administrador", permissions: ["all"] },
-      { name: "Vendedor", permissions: ["read_own_sales", "create_sales"] },
-      { name: "Consultor", permissions: ["read_all_sales", "read_reports"] },
-    ]
-
-    console.log("📋 Creando roles...")
-    for (const roleData of roles) {
-      const existingRole = await Role.findOne({ name: roleData.name })
-      if (!existingRole) {
-        await Role.create(roleData)
-        console.log(`✅ Rol creado: ${roleData.name}`)
-      } else {
-        console.log(`ℹ️  Rol ya existe: ${roleData.name}`)
-      }
-    }
-
-    // Obtener los roles creados
-    const adminRole = await Role.findOne({ name: "Administrador" })
-    const vendedorRole = await Role.findOne({ name: "Vendedor" })
-    const consultorRole = await Role.findOne({ name: "Consultor" })
-
-    // Crear usuarios si no existen
-    const users = [
-      {
-        name: "Admin User",
-        email: "admin@test.com",
-        password: await bcrypt.hash("password123", 12),
-        role: adminRole._id,
-      },
-      {
-        name: "Vendedor 1",
-        email: "vendedor1@test.com",
-        password: await bcrypt.hash("password123", 12),
-        role: vendedorRole._id,
-      },
-      {
-        name: "Vendedor 2",
-        email: "vendedor2@test.com",
-        password: await bcrypt.hash("password123", 12),
-        role: vendedorRole._id,
-      },
-      {
-        name: "Consultor User",
-        email: "consultor@test.com",
-        password: await bcrypt.hash("password123", 12),
-        role: consultorRole._id,
-      },
-    ]
-
-    console.log("👥 Creando usuarios...")
-    const createdUsers = []
-    for (const userData of users) {
-      const existingUser = await User.findOne({ email: userData.email })
-      if (!existingUser) {
-        const user = await User.create(userData)
-        createdUsers.push(user)
-        console.log(`✅ Usuario creado: ${userData.email}`)
-      } else {
-        createdUsers.push(existingUser)
-        console.log(`ℹ️  Usuario ya existe: ${userData.email}`)
-      }
-    }
-
-    // Crear ventas de prueba
-    console.log("🛒 Creando ventas de prueba...")
+    // IMPORTANTE: Asegúrate de que tu MONGO_URI incluya la base de datos soa_system
+    // Ejemplo: mongodb+srv://usuario:password@cluster.mongodb.net/soa_system?retryWrites=true&w=majority
     
-    const salesData = [
-      {
-        user_id: createdUsers[1]._id, // Vendedor 1
-        products: [
-          {
-            productId: 1,
-            name: "Laptop HP",
-            quantity: 1,
-            price: 15000,
-            purchase_price: 12000,
-            profit: 3000
-          },
-          {
-            productId: 2,
-            name: "Mouse Logitech",
-            quantity: 2,
-            price: 500,
-            purchase_price: 300,
-            profit: 400
-          }
-        ],
-        total: 16000,
-        total_profit: 3400,
-        status: "completed",
-        notes: "Venta a cliente corporativo",
-      },
-      {
-        user_id: createdUsers[2]._id, // Vendedor 2
-        products: [
-          {
-            productId: 3,
-            name: "Teclado Mecánico",
-            quantity: 1,
-            price: 2500,
-            purchase_price: 1800,
-            profit: 700
-          }
-        ],
-        total: 2500,
-        total_profit: 700,
-        status: "completed",
-        notes: "Venta directa",
-      },
-      {
-        user_id: createdUsers[1]._id, // Vendedor 1
-        products: [
-          {
-            productId: 4,
-            name: "Monitor Samsung 24''",
-            quantity: 1,
-            price: 8000,
-            purchase_price: 6000,
-            profit: 2000
-          },
-          {
-            productId: 5,
-            name: "Cable HDMI",
-            quantity: 1,
-            price: 200,
-            purchase_price: 100,
-            profit: 100
-          }
-        ],
-        total: 8200,
-        total_profit: 2100,
-        status: "completed",
-        notes: "Venta con descuento aplicado",
-      },
-      {
-        user_id: createdUsers[2]._id, // Vendedor 2
-        products: [
-          {
-            productId: 6,
-            name: "Impresora Canon",
-            quantity: 1,
-            price: 5500,
-            purchase_price: 4000,
-            profit: 1500
-          }
-        ],
-        total: 5500,
-        total_profit: 1500,
-        status: "pending",
-        notes: "Pendiente de entrega",
-      }
-    ]
-
-    for (const saleData of salesData) {
-      const sale = await Sale.create(saleData)
-      console.log(`✅ Venta creada: $${sale.total} por ${createdUsers.find(u => u._id.equals(sale.user_id)).name}`)
+    console.log("🔄 Conectando a MongoDB Atlas...");
+    console.log(`📝 URI: ${process.env.MONGO_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+    
+    await mongoose.connect(process.env.MONGO_URI);
+    
+    console.log(`✅ Conectado a MongoDB Atlas: ${mongoose.connection.host}`);
+    console.log(`📂 Base de datos usada: ${mongoose.connection.name}`);
+    
+    // Verificar que estamos en la base de datos correcta
+    if (mongoose.connection.name !== 'soa_system') {
+      console.log(`⚠️  ADVERTENCIA: Se esperaba 'soa_system' pero se está usando '${mongoose.connection.name}'`);
     }
 
-    console.log("\n🎉 ¡Base de datos inicializada correctamente!")
-    console.log("\n📊 Resumen:")
-    console.log(`👥 Usuarios: ${createdUsers.length}`)
-    console.log(`📋 Roles: ${roles.length}`)
-    console.log(`🛒 Ventas: ${salesData.length}`)
-    
-    console.log("\n🔑 Credenciales de acceso:")
-    console.log("Admin: admin@test.com / password123")
-    console.log("Vendedor 1: vendedor1@test.com / password123")
-    console.log("Vendedor 2: vendedor2@test.com / password123")
-    console.log("Consultor: consultor@test.com / password123")
+    // ----------------------
+    // 1️⃣ Limpiar datos existentes (opcional para testing)
+    // ----------------------
+    console.log("🧹 Limpiando datos existentes...");
+    await Role.deleteMany({});
+    await User.deleteMany({});
+    await Sale.deleteMany({});
+    console.log("✅ Datos anteriores eliminados");
 
+    // ----------------------
+    // 2️⃣ Crear roles
+    // ----------------------
+    console.log("📝 Creando roles...");
+    const defaultRoles = [
+      {
+        name: "Administrador",
+        permissions: {
+          manageUsers: true,
+          manageProducts: true,
+          viewReports: true,
+          manageSales: true,
+          manageInventory: true,
+        },
+        description: "Acceso total al sistema",
+      },
+      {
+        name: "Vendedor",
+        permissions: {
+          manageUsers: false,
+          manageProducts: false,
+          viewReports: false,
+          manageSales: true,
+          manageInventory: false,
+        },
+        description: "Puede gestionar ventas",
+      },
+      {
+        name: "Consultor",
+        permissions: {
+          manageUsers: false,
+          manageProducts: false,
+          viewReports: true,
+          manageSales: false,
+          manageInventory: false,
+        },
+        description: "Puede ver reportes",
+      },
+      {
+        name: "Almacenista",
+        permissions: {
+          manageUsers: false,
+          manageProducts: true,
+          viewReports: false,
+          manageSales: false,
+          manageInventory: true,
+        },
+        description: "Gestiona inventario y productos",
+      },
+    ];
+
+    const createdRoles = await Role.insertMany(defaultRoles);
+    console.log(`✅ ${createdRoles.length} roles creados`);
+    
+    // Obtener los roles creados con función helper
+    const getRoleId = (name) => {
+      const role = createdRoles.find(role => role.name === name);
+      if (!role) {
+        throw new Error(`❌ Rol '${name}' no encontrado`);
+      }
+      return role._id;
+    };
+
+    // ----------------------
+    // 3️⃣ Crear usuarios
+    // ----------------------
+    console.log("👥 Creando usuarios...");
+    const usersData = [
+      {
+        name: "Administrador",
+        email: "admin@example.com",
+        password: "admin123",
+        role_id: getRoleId("Administrador"),
+        active: true,
+      },
+      {
+        name: "Vendedor Juan",
+        email: "juan@ventas.com",
+        password: "vendedor123",
+        role_id: getRoleId("Vendedor"),
+        active: true,
+      },
+      {
+        name: "Consultora Ana",
+        email: "ana@consultoria.com",
+        password: "consultor123",
+        role_id: getRoleId("Consultor"),
+        active: true,
+      },
+      {
+        name: "Almacenista Pedro",
+        email: "pedro@almacen.com",
+        password: "almacen123",
+        role_id: getRoleId("Almacenista"),
+        active: true,
+      },
+    ];
+
+    // Crear usuarios uno por uno para activar middleware pre-save
+    const createdUsers = [];
+    for (const userData of usersData) {
+      try {
+        console.log(`  Creando usuario: ${userData.name}...`);
+        const user = new User(userData);
+        await user.save(); // Esto activa el middleware pre-save
+        createdUsers.push(user);
+        console.log(`  ✅ ${userData.name} creado exitosamente`);
+      } catch (userError) {
+        console.error(`  ❌ Error creando ${userData.name}:`, userError.message);
+        if (userError.errors) {
+          Object.keys(userError.errors).forEach(field => {
+            console.error(`    - ${field}: ${userError.errors[field].message}`);
+          });
+        }
+        // Continuar con el siguiente usuario
+      }
+    }
+    console.log(`✅ ${createdUsers.length} usuarios creados exitosamente`);
+
+    // ----------------------
+    // 4️⃣ Crear ventas de ejemplo
+    // ----------------------
+    if (createdUsers.length > 0) {
+      console.log("💰 Creando ventas de ejemplo...");
+      const adminUser = createdUsers.find(user => user.email === "admin@example.com");
+      const vendedorUser = createdUsers.find(user => user.email === "juan@ventas.com");
+
+      if (adminUser && vendedorUser) {
+        const sales = [
+          { 
+            product: "iPhone 14 Pro", 
+            quantity: 2, 
+            price: 1299.99, 
+            createdBy: vendedorUser._id,
+            notes: "Venta realizada por Juan"
+          },
+          { 
+            product: "MacBook Air", 
+            quantity: 1, 
+            price: 1199.99, 
+            createdBy: vendedorUser._id,
+            notes: "Cliente frecuente"
+          },
+          { 
+            product: "iPad Pro", 
+            quantity: 1, 
+            price: 1099.99, 
+            createdBy: adminUser._id,
+            notes: "Venta administrativa"
+          }
+        ];
+
+        try {
+          const createdSales = await Sale.insertMany(sales);
+          console.log(`✅ ${createdSales.length} ventas creadas`);
+        } catch (salesError) {
+          console.error("❌ Error creando ventas:", salesError.message);
+        }
+      } else {
+        console.log("⚠️  No se pueden crear ventas: faltan usuarios requeridos");
+      }
+    } else {
+      console.log("⚠️  No se crearon ventas: no hay usuarios disponibles");
+    }
+
+    // ----------------------
+    // 5️⃣ Verificar datos creados
+    // ----------------------
+    console.log("\n📊 RESUMEN DE DATOS CREADOS:");
+    console.log(`👥 Usuarios: ${await User.countDocuments()}`);
+    console.log(`🔐 Roles: ${await Role.countDocuments()}`);
+    console.log(`💰 Ventas: ${await Sale.countDocuments()}`);
+    
+    // Mostrar algunos datos si existen usuarios
+    if (await User.countDocuments() > 0) {
+      const allUsers = await User.find().populate('role_id');
+      console.log("\n👤 USUARIOS CREADOS:");
+      allUsers.forEach(user => {
+        console.log(`  - ${user.name} (${user.email}) - Rol: ${user.role_id.name}`);
+      });
+    } else {
+      console.log("\n⚠️  No se encontraron usuarios en la base de datos");
+    }
+
+    console.log("\n✅ Base de datos soa_system inicializada correctamente");
+    console.log("\n🔐 CREDENCIALES DE PRUEBA:");
+    console.log("📧 Administrador: admin@example.com | 🔑 admin123");
+    console.log("📧 Vendedor: juan@ventas.com | 🔑 vendedor123");
+    console.log("📧 Consultora: ana@consultoria.com | 🔑 consultor123");
+    console.log("📧 Almacenista: pedro@almacen.com | 🔑 almacen123");
+    
   } catch (error) {
-    console.error("❌ Error al inicializar la base de datos:", error)
-    process.exit(1)
+    console.error("❌ Error conectando o inicializando MongoDB Atlas:", error);
+    console.error("Stack trace:", error.stack);
+    process.exit(1);
   } finally {
-    await mongoose.disconnect()
-    console.log("🔌 Desconectado de MongoDB")
-    process.exit(0)
+    // Cerrar conexión
+    await mongoose.connection.close();
+    console.log("🔌 Conexión cerrada");
+    process.exit(0);
   }
-}
+};
 
-initDatabase()
+// Ejecutar la función
+connectDB();
