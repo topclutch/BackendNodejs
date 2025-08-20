@@ -163,34 +163,80 @@ const connectDB = async () => {
 
       if (adminUser && vendedorUser) {
         const sales = [
-          { 
-            product: "iPhone 14 Pro", 
-            quantity: 2, 
-            price: 1299.99, 
-            createdBy: vendedorUser._id,
+          {
+            user_id: vendedorUser._id,
+            client: "Cliente Ejemplo 1",
+            products: [
+              {
+                productId: 1001,
+                name: "iPhone 14 Pro",
+                quantity: 2,
+                price: 1299.99,
+                purchase_price: 1000.00,
+                profit: 299.99
+              }
+            ],
+            total: 2599.98,
+            total_profit: 599.98,
+            status: "completed",
             notes: "Venta realizada por Juan"
           },
-          { 
-            product: "MacBook Air", 
-            quantity: 1, 
-            price: 1199.99, 
-            createdBy: vendedorUser._id,
+          {
+            user_id: vendedorUser._id,
+            client: "Cliente Frecuente",
+            products: [
+              {
+                productId: 1002,
+                name: "MacBook Air",
+                quantity: 1,
+                price: 1199.99,
+                purchase_price: 900.00,
+                profit: 299.99
+              }
+            ],
+            total: 1199.99,
+            total_profit: 299.99,
+            status: "completed",
             notes: "Cliente frecuente"
           },
-          { 
-            product: "iPad Pro", 
-            quantity: 1, 
-            price: 1099.99, 
-            createdBy: adminUser._id,
+          {
+            user_id: adminUser._id,
+            client: "Venta Administrativa",
+            products: [
+              {
+                productId: 1003,
+                name: "iPad Pro",
+                quantity: 1,
+                price: 1099.99,
+                purchase_price: 800.00,
+                profit: 299.99
+              }
+            ],
+            total: 1099.99,
+            total_profit: 299.99,
+            status: "completed",
             notes: "Venta administrativa"
           }
         ];
 
         try {
-          const createdSales = await Sale.insertMany(sales);
+          // Crear ventas una por una para activar middleware pre-save
+          const createdSales = [];
+          for (const saleData of sales) {
+            console.log(`  Creando venta para: ${saleData.client}...`);
+            const sale = new Sale(saleData);
+            await sale.save();
+            createdSales.push(sale);
+            console.log(`  ✅ Venta creada exitosamente`);
+          }
           console.log(`✅ ${createdSales.length} ventas creadas`);
         } catch (salesError) {
           console.error("❌ Error creando ventas:", salesError.message);
+          if (salesError.errors) {
+            Object.keys(salesError.errors).forEach(field => {
+              console.error(`    - ${field}: ${salesError.errors[field].message}`);
+            });
+          }
         }
       } else {
         console.log("⚠️  No se pueden crear ventas: faltan usuarios requeridos");
@@ -216,6 +262,15 @@ const connectDB = async () => {
       });
     } else {
       console.log("\n⚠️  No se encontraron usuarios en la base de datos");
+    }
+
+    // Mostrar ventas si existen
+    if (await Sale.countDocuments() > 0) {
+      const allSales = await Sale.find().populate('user_id');
+      console.log("\n💰 VENTAS CREADAS:");
+      allSales.forEach(sale => {
+        console.log(`  - ${sale.client} | Total: $${sale.total} | Vendedor: ${sale.user_id.name}`);
+      });
     }
 
     console.log("\n✅ Base de datos soa_system inicializada correctamente");

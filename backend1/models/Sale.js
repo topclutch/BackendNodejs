@@ -42,6 +42,13 @@ const saleSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    client: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: [2, "El nombre del cliente debe tener al menos 2 caracteres"],
+      maxlength: [100, "El nombre del cliente no puede exceder 100 caracteres"]
+    },
     products: {
       type: [saleProductSchema],
       validate: [(arr) => arr.length > 0, "Debe haber al menos un producto"],
