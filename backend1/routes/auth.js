@@ -171,7 +171,6 @@ router.post("/login", async (req, res) => {
     })
   }
 })
-
 /**
  * @swagger
  * /api/auth/register:
@@ -183,7 +182,26 @@ router.post("/login", async (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Nombre completo del usuario
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email del usuario
+ *               password:
+ *                 type: string
+ *                 description: Contraseña del usuario
+ *               role:
+ *                 type: string
+ *                 default: Vendedor
+ *                 description: Nombre del rol
  *     responses:
  *       201:
  *         description: Usuario creado exitosamente
@@ -206,43 +224,46 @@ router.post("/login", async (req, res) => {
  *       500:
  *         description: Error interno del servidor
  */
+
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, role_name = "Vendedor" } = req.body
+    // Cambiar: usar 'role' en lugar de 'role_name'
+    const { name, email, password, role = "Vendedor" } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
         message: "Nombre, email y contraseña son requeridos",
-      })
+      });
     }
 
-    const existingUser = await User.findOne({ email })
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
         message: "El usuario ya existe",
-      })
+      });
     }
 
-    const role = await Role.findOne({ name: role_name })
-    if (!role) {
+    // Buscar el rol por el nombre recibido
+    const roleDocument = await Role.findOne({ name: role });
+    if (!roleDocument) {
       return res.status(400).json({
         success: false,
         message: "Rol inválido",
-      })
+      });
     }
 
     const user = new User({
       name,
       email,
       password,
-      role_id: role._id,
-    })
+      role_id: roleDocument._id, // Usar el ID del rol encontrado
+    });
 
-    await user.save()
+    await user.save();
 
-    const populatedUser = await User.findById(user._id).populate("role_id")
+    const populatedUser = await User.findById(user._id).populate("role_id");
 
     res.status(201).json({
       success: true,
@@ -256,15 +277,15 @@ router.post("/register", async (req, res) => {
           permissions: populatedUser.role_id.permissions,
         },
       },
-    })
+    });
   } catch (error) {
-    console.error("Error en registro:", error)
+    console.error("Error en registro:", error);
     res.status(500).json({
       success: false,
       message: "Error interno del servidor",
-    })
+    });
   }
-})
+});
 
 /**
  * @swagger
